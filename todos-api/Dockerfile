@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:12-alpine
 
 # ARG APP_DIR
 WORKDIR /usr/src/todos-api
