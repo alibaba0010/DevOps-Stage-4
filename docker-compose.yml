@@ -1,0 +1,98 @@
+version: "3.8"
+
+services:
+  # -----------------------------
+  # Redis Queue
+  # -----------------------------
+  redis-queue:
+    image: redis:latest
+    container_name: redis-queue
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # -----------------------------
+  # Auth API
+  # -----------------------------
+  auth-api:
+    build:
+      context: ./auth-api
+      dockerfile: Dockerfile
+    container_name: auth-api
+    environment:
+      - AUTH_API_PORT=${AUTH_API_PORT}
+      - JWT_SECRET=${JWT_SECRET}
+      - USERS_API_ADDRESS=${USERS_API_ADDRESS}
+    ports:
+      - "${AUTH_API_PORT}:8081"
+    depends_on:
+      - users-api
+
+  # -----------------------------
+  # Users API
+  # -----------------------------
+  users-api:
+    build:
+      context: ./users-api
+      dockerfile: Dockerfile
+    container_name: users-api
+    environment:
+      - SERVER_PORT=${SERVER_PORT}
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      - "${SERVER_PORT}:8083"
+
+  # -----------------------------
+  # Todos API
+  # -----------------------------
+  todos-api:
+    build:
+      context: ./todos-api
+      dockerfile: Dockerfile
+    container_name: todos-api
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_CHANNEL=${REDIS_CHANNEL}
+    ports:
+      - "8082:8082"
+    depends_on:
+      - redis-queue
+
+  # -----------------------------
+  # Log Message Processor
+  # -----------------------------
+  log-message-processor:
+    build:
+      context: ./log-message-processor
+      dockerfile: Dockerfile
+    container_name: log-message-processor
+    environment:
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_CHANNEL=${REDIS_CHANNEL}
+    depends_on:
+      - redis-queue
+
+  # -----------------------------
+  # Frontend
+  # -----------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    environment:
+      - PORT=${PORT}
+      - AUTH_API_ADDRESS=${AUTH_API_ADDRESS}
+      - TODOS_API_ADDRESS=${TODOS_API_ADDRESS}
+    ports:
+      - "8080:80"
+    depends_on:
+      - auth-api
+      - todos-api
+
+volumes:
+  redis_data:
