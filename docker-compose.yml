@@ -2,6 +2,33 @@ version: "3.8"
 
 services:
   # -----------------------------
+  # Trafik Reverse Proxy Service
+  # -----------------------------
+  traefik:
+    image: traefik:v2.9
+    container_name: traefik
+    command:
+      - --api.dashboard=true
+      - --providers.docker=true
+      - --entryPoints.web.address=:80
+      - --entryPoints.websecure.address=:443
+      - --certificatesResolvers.myresolver.acme.tlsChallenge=true
+      - --certificatesResolvers.myresolver.acme.email=you@example.com
+      - --certificatesResolvers.myresolver.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    depends_on:
+      - auth-api
+      - users-api
+      - todos-api
+      - log-message-processor
+      - frontend
+      - redis-queue
+  # -----------------------------
   # Redis Queue
   # -----------------------------
   redis-queue:
