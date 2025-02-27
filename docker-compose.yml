@@ -17,6 +17,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8000:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./letsencrypt:/letsencrypt
@@ -50,8 +51,13 @@ services:
       - AUTH_API_PORT=${AUTH_API_PORT}
       - JWT_SECRET=${JWT_SECRET}
       - USERS_API_ADDRESS=${USERS_API_ADDRESS}
-    ports:
-      - "${AUTH_API_PORT}:8081"
+    # ports:
+    #   - "${AUTH_API_PORT}:8081"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth-api.rule=Host(`auth.${HOST_NAME}`) || Host(`${HOST_NAME}`) && PathPrefix(`/api/auth`)"
+      - "traefik.http.routers.auth-api.entrypoints=websecure"
+      - "traefik.http.routers.auth-api.tls.certresolver=myresolver"
     depends_on:
       - users-api
 
@@ -66,8 +72,15 @@ services:
     environment:
       - SERVER_PORT=${SERVER_PORT}
       - JWT_SECRET=${JWT_SECRET}
-    ports:
-      - "${SERVER_PORT}:8083"
+    # ports:
+    #   - "${SERVER_PORT}:8083"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.users-api.rule=Host(`users.${HOST_NAME}`) || Host(`${HOST_NAME}`) && PathPrefix(`/api/users`)"
+      - "traefik.http.routers.users-api.entrypoints=websecure"
+      - "traefik.http.routers.users-api.tls.certresolver=myresolver"
+    depends_on:
+      - redis-queue
 
   # -----------------------------
   # Todos API
@@ -82,10 +95,16 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_CHANNEL=${REDIS_CHANNEL}
-    ports:
-      - "8082:8082"
+    # ports:
+    #   - "8082:8082"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.todos-api.rule=Host(`todos.${HOST_NAME}`) || Host(`${HOST_NAME}`) && PathPrefix(`/api/todos`)"
+      - "traefik.http.routers.todos-api.entrypoints=websecure"
+      - "traefik.http.routers.todos-api.tls.certresolver=myresolver"
     depends_on:
       - redis-queue
+      - auth-api
 
   # -----------------------------
   # Log Message Processor
@@ -118,7 +137,7 @@ services:
     #   - "8080:8080"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`alibaba0010.zapto.org`)"
+      - "traefik.http.routers.frontend.rule=Host(`${HOST_NAME}`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=myresolver"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
@@ -126,7 +145,6 @@ services:
     depends_on:
       - auth-api
       - todos-api
-      - traefik
 
 volumes:
   redis_data:
