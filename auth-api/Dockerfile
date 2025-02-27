@@ -12,10 +12,13 @@ RUN go mod download
 COPY . .
 
 # Build the application binary with static linking
-RUN CGO_ENABLED=0 go build -o auth-api
+# RUN CGO_ENABLED=0 go build -o auth-api
+RUN CGO_ENABLED=0 GOOS=linux go build -o auth-api .
 
 # Use a distroless static image for the final container
-FROM gcr.io/distroless/static-debian11
+# FROM gcr.io/distroless/static-debian11
+
+FROM alpine:latest
 
 # Set the working directory in the new container
 WORKDIR /app

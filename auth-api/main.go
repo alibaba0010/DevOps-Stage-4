@@ -81,6 +81,7 @@ type LoginRequest struct {
 func getLoginHandler(userService UserService) echo.HandlerFunc {
 	f := func(c echo.Context) error {
 		requestData := LoginRequest{}
+		log.Printf("%+v", requestData)
 		decoder := json.NewDecoder(c.Request().Body)
 		if err := decoder.Decode(&requestData); err != nil {
 			log.Printf("could not read credentials from POST body: %s", err.Error())
