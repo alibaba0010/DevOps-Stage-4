@@ -125,6 +125,7 @@ services:
     depends_on:
       - auth-api
       - todos-api
+      - traefik
 
 volumes:
   redis_data:
