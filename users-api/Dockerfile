@@ -1,31 +1,32 @@
-# Build stage
-FROM maven:3.8.4-openjdk-17 AS build
+# Use Maven with OpenJDK 8 as the base image for building
+FROM maven:3.8.4-openjdk-8 AS build
+
+# Set the working directory inside the container to /app
 WORKDIR /app
 
-# Copy pom.xml first to leverage Docker cache
+# Copy the pom.xml file to the working directory
 COPY pom.xml .
-RUN mvn dependency:go-offline -B
 
-# Copy source code
+# Download all dependencies to be available offline
+RUN mvn dependency:go-offline
+
+# Copy the source code to the working directory
 COPY src ./src
 
-# Build application
+# Build the project and package it into a JAR file, skipping tests
 RUN mvn clean package -DskipTests
 
-# Runtime stage
-FROM openjdk:17-jdk-alpine
+# Use a slim version of OpenJDK 8 as the base image for running the application
+FROM openjdk:8-jre-alpine
 
-WORKDIR /app
+# Set the working directory inside the container to /usr/src/app
+WORKDIR /usr/src/app
 
-# Copy built JAR from build stage
-COPY --from=build /app/target/*.jar app.jar
-
-# Set environment variables
-ENV JAVA_OPTS=""
-ENV TZ=UTC
+# Copy the JAR file from the build stage
+COPY --from=build /app/target/users-api-0.0.1-SNAPSHOT.jar ./users-api.jar
 
 # Expose application port
 EXPOSE 8083
 
 # Run application
-ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]
+CMD ["java", "-jar", "/usr/src/app/users-api.jar"]
