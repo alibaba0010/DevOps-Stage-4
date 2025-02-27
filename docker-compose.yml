@@ -6,12 +6,13 @@ services:
     image: traefik:v2.9
     container_name: traefik
     command:
+      - --api.insecure=true
       - --api.dashboard=true
       - --providers.docker=true
       - --entryPoints.web.address=:80
       - --entryPoints.websecure.address=:443
       - --certificatesResolvers.myresolver.acme.tlsChallenge=true
-      - --certificatesResolvers.myresolver.acme.email=you@example.com
+      - --certificatesResolvers.myresolver.acme.email=balo88326@gmail.com
       - --certificatesResolvers.myresolver.acme.storage=/letsencrypt/acme.json
     ports:
       - "80:80"
