@@ -9,25 +9,23 @@ services:
       - --api.insecure=true
       - --api.dashboard=true
       - --providers.docker=true
+      - "--providers.docker.exposedbydefault=false"
       - --entryPoints.web.address=:80
       - --entryPoints.websecure.address=:443
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
       - --certificatesResolvers.myresolver.acme.tlsChallenge=true
       - --certificatesResolvers.myresolver.acme.email=balo88326@gmail.com
       - --certificatesResolvers.myresolver.acme.storage=/letsencrypt/acme.json
+    expose:
+      - "8080"
     ports:
       - "80:80"
       - "443:443"
-      - "8000:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./letsencrypt:/letsencrypt
-    depends_on:
-      - auth-api
-      - users-api
-      - todos-api
-      - log-message-processor
-      - frontend
-      - redis-queue
+
   # -----------------------------
   # Redis Queue
   # -----------------------------
@@ -56,7 +54,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.auth-api.rule=Host(`auth.${HOST_NAME}`) || Host(`${HOST_NAME}`) && PathPrefix(`/api/auth`)"
-      - "traefik.http.routers.auth-api.entrypoints=websecure"
+      - "traefik.http.routers.auth-api.entrypoints=web"
       - "traefik.http.routers.auth-api.tls.certresolver=myresolver"
     depends_on:
       - users-api
@@ -133,14 +131,28 @@ services:
       - PORT=${PORT}
       - AUTH_API_ADDRESS=${AUTH_API_ADDRESS}
       - TODOS_API_ADDRESS=${TODOS_API_ADDRESS}
-    # ports:
-    #   - "8080:8080"
+    ports:
+      - "8080:8080"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`${HOST_NAME}`)"
       - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.routers.frontend-http.service=frontend"
       - "traefik.http.routers.frontend.tls.certresolver=myresolver"
       - "traefik.http.services.frontend.loadbalancer.server.port=8080"
+      # tls
+      - "traefik.http.routers.frontend-https.tls=true"
+      - "traefik.http.routers.frontend-https.tls.certresolver=myresolver"
+      - "traefik.http.routers.frontend-https.entrypoints=websecure"
+      - "traefik.http.routers.frontend-https.rule=Host(`prestastack.com`)"
+      - "traefik.http.routers.frontend-https.service=frontend"
+      # tls redirect
+      - "traefik.http.routers.frontend-http.middlewares=redirect-https"
+      - "traefik.http.middlewares.redirect-https.redirectScheme.scheme=https"
+      - "traefik.http.middlewares.redirect-https.redirectScheme.permanent=true"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
 
     depends_on:
       - auth-api
