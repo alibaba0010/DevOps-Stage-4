@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # -----------------------------
   # Trafik Reverse Proxy Service
