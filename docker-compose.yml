@@ -32,6 +32,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./letsencrypt:/letsencrypt
+    networks:
+      - app-network
 
   # -----------------------------
   # Redis Queue
@@ -56,8 +58,8 @@ services:
       - AUTH_API_PORT=${AUTH_API_PORT}
       - JWT_SECRET=${JWT_SECRET}
       - USERS_API_ADDRESS=${USERS_API_ADDRESS}
-    # ports:
-    #   - "${AUTH_API_PORT}:8081"
+    ports:
+      - "${AUTH_API_PORT}:8081"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.auth-api.rule=Host(`auth.alibaba0010.zapto.org`) || Host(`alibaba0010.zapto.org`) && PathPrefix(`/api/auth`)"
@@ -74,6 +76,8 @@ services:
       - "traefik.http.middlewares.redirect-https.redirectScheme.permanent=true"
     depends_on:
       - users-api
+    networks:
+      - app-network
 
   # -----------------------------
   # Users API
@@ -86,8 +90,8 @@ services:
     environment:
       - SERVER_PORT=${SERVER_PORT}
       - JWT_SECRET=${JWT_SECRET}
-    # ports:
-    #   - "${SERVER_PORT}:8083"
+    ports:
+      - "${SERVER_PORT}:8083"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.users-api.rule=Host(`users.${HOST_NAME}`) || Host(`${HOST_NAME}`) && PathPrefix(`/api/users`)"
@@ -95,6 +99,8 @@ services:
       - "traefik.http.routers.users-api.tls.certresolver=myresolver"
     depends_on:
       - redis-queue
+    networks:
+      - app-network
 
   # -----------------------------
   # Todos API
@@ -109,8 +115,8 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_CHANNEL=${REDIS_CHANNEL}
-    # ports:
-    #   - "8082:8082"
+    ports:
+      - "8082:8082"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.todos-api.rule=Host(`todos.${HOST_NAME}`) || Host(`${HOST_NAME}`) && PathPrefix(`/api/todos`)"
@@ -119,6 +125,8 @@ services:
     depends_on:
       - redis-queue
       - auth-api
+    networks:
+      - app-network
 
   # -----------------------------
   # Log Message Processor
@@ -172,7 +180,13 @@ services:
     depends_on:
       - auth-api
       - todos-api
+    networks:
+      - app-network
 
 volumes:
   traefik_letsencrypt:
   redis_data:
+networks:
+  app-network:
+    driver: bridge
+    external: true
