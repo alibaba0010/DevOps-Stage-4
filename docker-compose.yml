@@ -8,8 +8,8 @@ services:
     restart: unless-stopped
     command:
       # provider
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
+      - --api.insecure=true # Enable Traefik dashboard
+      - --providers.docker # Use Docker as the provider
       # metrics
       - "--metrics.prometheus=true"
       - "--metrics.prometheus.buckets=0.1,0.3,1.2,5.0"
@@ -30,7 +30,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./letsencrypt:/letsencrypt
     networks:
       - app-network
