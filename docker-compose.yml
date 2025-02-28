@@ -174,4 +174,5 @@ services:
       - todos-api
 
 volumes:
+  traefik_letsencrypt:
   redis_data:
