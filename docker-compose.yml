@@ -8,7 +8,6 @@ services:
     restart: unless-stopped
     command:
       # provider
-      - --api.insecure=true # Enable Traefik dashboard
       - --providers.docker # Use Docker as the provider
       # metrics
       - "--metrics.prometheus=true"
@@ -24,8 +23,7 @@ services:
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.myresolver.acme.email=email@admin.com"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-    expose:
-      - "8080"
+
     ports:
       - "80:80"
       - "443:443"
