@@ -1,190 +1,117 @@
+version: "3.8"
 services:
-  # -----------------------------
-  # Trafik Reverse Proxy Service
-  # -----------------------------
   traefik:
-    image: traefik:v2.9
+    image: traefik:latest
     container_name: traefik
-    restart: unless-stopped
     command:
-      # provider
-      - --providers.docker # Use Docker as the provider
-      # metrics
-      - "--metrics.prometheus=true"
-      - "--metrics.prometheus.buckets=0.1,0.3,1.2,5.0"
-      - "--log.level=ERROR"
-      # logs
-      - "--accesslog=true"
-      # entrypoints
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      # certificatesresolvers
-      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.myresolver.acme.email=email@admin.com"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-
+      - --api.insecure=true
+      - --providers.docker
+      - --entrypoints.web.address=:80 # HTTP entry point
+      - --entrypoints.websecure.address=:443 # HTTPS entry point
+      - --certificatesresolvers.myresolver.acme.httpchallenge=true # Use HTTP challenge for Let's Encrypt
+      - --certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.myresolver.acme.email=wheeliams98@gmail.com
+      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
     ports:
-      - "80:80"
-      - "443:443"
+      - "80:80" # Expose HTTP
+      - "443:443" # Expose HTTPS
+      - "8080:8080" # Expose Traefik dashboard
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./letsencrypt:/letsencrypt
+      - ./letsencrypt:/letsencrypt # Store SSL certificates
+      - /var/run/docker.sock:/var/run/docker.sock # Allow Traefik to interact with Docker
     networks:
       - app-network
 
-  # -----------------------------
-  # Redis Queue
-  # -----------------------------
-  redis-queue:
-    image: redis:latest
-    container_name: redis-queue
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-  # -----------------------------
-  # Auth API
-  # -----------------------------
-  auth-api:
-    build:
-      context: ./auth-api
-      dockerfile: Dockerfile
-    container_name: auth-api
-    environment:
-      - AUTH_API_PORT=${AUTH_API_PORT}
-      - JWT_SECRET=${JWT_SECRET}
-      - USERS_API_ADDRESS=${USERS_API_ADDRESS}
-    ports:
-      - "${AUTH_API_PORT}:8081"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.auth-api.rule=Host(`auth.alibaba0010.zapto.org`) || Host(`alibaba0010.zapto.org`) && PathPrefix(`/api/auth`)"
-      - "traefik.http.routers.auth-api.entrypoints=web"
-      - "traefik.http.routers.auth-api.tls.certresolver=myresolver"
-        # tls
-      - "traefik.http.routers.authapi-https.tls=true"
-      - "traefik.http.routers.authapi-https.tls.certresolver=myresolver"
-      - "traefik.http.routers.authapi-https.entrypoints=websecure"
-      - "traefik.http.routers.authapi-https.rule=Host(`alibaba0010.zapto.org`)"
-      # tls redirect
-      - "traefik.http.routers.authapi-http.middlewares=redirect-https"
-      - "traefik.http.middlewares.redirect-https.redirectScheme.scheme=https"
-      - "traefik.http.middlewares.redirect-https.redirectScheme.permanent=true"
-    depends_on:
-      - users-api
-    networks:
-      - app-network
-
-  # -----------------------------
-  # Users API
-  # -----------------------------
-  users-api:
-    build:
-      context: ./users-api
-      dockerfile: Dockerfile
-    container_name: users-api
-    environment:
-      - SERVER_PORT=${SERVER_PORT}
-      - JWT_SECRET=${JWT_SECRET}
-    ports:
-      - "${SERVER_PORT}:8083"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.users-api.rule=Host(`users.${HOST_NAME}`) || Host(`${HOST_NAME}`) && PathPrefix(`/api/users`)"
-      - "traefik.http.routers.users-api.entrypoints=web"
-      - "traefik.http.routers.users-api.tls.certresolver=myresolver"
-    depends_on:
-      - redis-queue
-    networks:
-      - app-network
-
-  # -----------------------------
-  # Todos API
-  # -----------------------------
-  todos-api:
-    build:
-      context: ./todos-api
-      dockerfile: Dockerfile
-    container_name: todos-api
-    environment:
-      - JWT_SECRET=${JWT_SECRET}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_CHANNEL=${REDIS_CHANNEL}
-    ports:
-      - "8082:8082"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.todos-api.rule=Host(`todos.${HOST_NAME}`) || Host(`${HOST_NAME}`) && PathPrefix(`/api/todos`)"
-      - "traefik.http.routers.todos-api.entrypoints=web"
-      - "traefik.http.routers.todos-api.tls.certresolver=myresolver"
-    depends_on:
-      - redis-queue
-      - auth-api
-    networks:
-      - app-network
-
-  # -----------------------------
-  # Log Message Processor
-  # -----------------------------
-  log-message-processor:
-    build:
-      context: ./log-message-processor
-      dockerfile: Dockerfile
-    container_name: log-message-processor
-    environment:
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_CHANNEL=${REDIS_CHANNEL}
-    depends_on:
-      - redis-queue
-
-  # -----------------------------
-  # Frontend
-  # -----------------------------
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    build: ./frontend
     container_name: frontend
-    environment:
-      - PORT=${PORT}
-      - AUTH_API_ADDRESS=${AUTH_API_ADDRESS}
-      - TODOS_API_ADDRESS=${TODOS_API_ADDRESS}
-    ports:
-      - "8080:8080"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`alibaba0010.zapto.org`)"
-      - "traefik.http.routers.frontend.entrypoints=web"
-      - "traefik.http.routers.frontend-http.service=frontend"
+      - "traefik.http.routers.frontend.rule=Host(`adedibu.duckdns.org`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=myresolver"
       - "traefik.http.services.frontend.loadbalancer.server.port=8080"
-      # tls
-      - "traefik.http.routers.frontend-https.tls=true"
-      - "traefik.http.routers.frontend-https.tls.certresolver=myresolver"
-      - "traefik.http.routers.frontend-https.entrypoints=websecure"
-      - "traefik.http.routers.frontend-https.rule=Host(`alibaba0010.zapto.org`)"
-      - "traefik.http.routers.frontend-https.service=frontend"
-      # tls redirect
-      - "traefik.http.routers.frontend-http.middlewares=redirect-https"
-      - "traefik.http.middlewares.redirect-https.redirectScheme.scheme=https"
-      - "traefik.http.middlewares.redirect-https.redirectScheme.permanent=true"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    command: npm run dev
+    environment:
+      - PORT=8080
+      - AUTH_API_ADDRESS=http://auth-api:8081
+      - TODOS_API_ADDRESS=http://todos-api:8082
     depends_on:
       - auth-api
       - todos-api
     networks:
       - app-network
 
-volumes:
-  traefik_letsencrypt:
-  redis_data:
+  auth-api:
+    build: ./auth-api
+    container_name: auth-api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth-api.rule=Host(`adedibu.duckdns.org`) && PathPrefix(`/api/auth`)"
+      - "traefik.http.routers.auth-api.entrypoints=websecure"
+      - "traefik.http.routers.auth-api.tls.certresolver=myresolver"
+    environment:
+      - AUTH_API_PORT=8081
+      - JWT_SECRET=myfancysecret
+      - USERS_API_ADDRESS=http://users-api:8083
+    depends_on:
+      - users-api
+    networks:
+      - app-network
+
+  todos-api:
+    build: ./todos-api
+    container_name: todos-api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.todos-api.rule=Host(`adedibu.duckdns.org`) && PathPrefix(`/api/todos`)"
+      - "traefik.http.routers.todos-api.entrypoints=websecure"
+      - "traefik.http.routers.todos-api.tls.certresolver=myresolver"
+    environment:
+      - JWT_SECRET=myfancysecret
+      - REDIS_HOST=redis-queue
+      - REDIS_PORT=6379
+      - REDIS_CHANNEL=log_channel
+    depends_on:
+      - redis-queue
+    networks:
+      - app-network
+
+  users-api:
+    build: ./users-api
+    container_name: users-api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.users-api.rule=Host(`adedibu.duckdns.org`) && PathPrefix(`/api/users`)"
+      - "traefik.http.routers.users-api.entrypoints=websecure"
+      - "traefik.http.routers.users-api.tls.certresolver=myresolver"
+    environment:
+      - SERVER_PORT=8083
+      - JWT_SECRET=myfancysecret
+    networks:
+      - app-network
+
+  log-message-processor:
+    build: ./log-message-processor
+    container_name: log-message-processor
+    environment:
+      - REDIS_HOST=redis-queue
+      - REDIS_PORT=6379
+      - REDIS_CHANNEL=log_channel
+    depends_on:
+      - redis-queue
+    networks:
+      - app-network
+
+  redis-queue:
+    image: redis:latest
+    container_name: redis-queue
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
-    external: true
